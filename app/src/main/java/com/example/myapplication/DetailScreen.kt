@@ -359,10 +359,7 @@
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .graphicsLayer {
-                                    scaleX = -1f
-                                },
+                                .clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop
                         )
                     } ?: Box(

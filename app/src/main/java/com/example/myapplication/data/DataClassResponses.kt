@@ -11,7 +11,9 @@ class DataClassResponses {
     data class PrepareTransactionApiResponse(
         @SerializedName("success") val success: Boolean,
         @SerializedName("message") val message: String?,
-        @SerializedName("data") val data: TransactionData?
+        @SerializedName("txHash") val txHash: TransactionData? = null,
+        @SerializedName("data") val data: TransactionData? = null,
+        @SerializedName("transactionData") val transactionData: String? = null
     )
 
     data class CheckWalletRequest(
@@ -45,11 +47,11 @@ class DataClassResponses {
         @SerializedName("message") val message: String?
     )
 
-    data class ServerLogoutResponse(
+    data class LogoutResponse(
         @SerializedName("success") val success: Boolean,
-        @SerializedName("message") val message: String?,
-        @SerializedName("logoutTransactionData") val logoutTransactionData: String?,
-        @SerializedName("publicKey") val publicKey: String?
+        @SerializedName("message") val message: String,
+        @SerializedName("logoutTransactionData") val logoutTransactionData: String? = null,
+        @SerializedName("publicKey") val publicKey: String? = null
     )
 
     data class UserData(
@@ -219,4 +221,39 @@ class DataClassResponses {
         @SerializedName("recordCount") val recordCount: String
     )
 
+    /* ================================ CONFIRMATION REQUESTS ================================ */
+    data class ConfirmAddPlantRequest(
+        @SerializedName("privateTxHash") val privateTxHash: String,
+        @SerializedName("plantId") val plantId: String,
+        @SerializedName("userAddress") val userAddress: String
+    )
+
+    data class ConfirmEditPlantRequest(
+        @SerializedName("privateTxHash") val privateTxHash: String,
+        @SerializedName("plantId") val plantId: String,
+        @SerializedName("userAddress") val userAddress: String
+    )
+
+    /* ================================ CONFIRMATION RESPONSE ================================ */
+    data class ConfirmPlantResponse(
+        @SerializedName("success") val success: Boolean,
+        @SerializedName("message") val message: String,
+        @SerializedName("besu") val besu: BesuTransactionInfo? = null,
+        @SerializedName("public") val public: PublicTransactionInfo? = null,
+        @SerializedName("publicError") val publicError: String? = null,
+        @SerializedName("warning") val warning: String? = null
+    )
+
+    data class BesuTransactionInfo(
+        @SerializedName("txHash") val txHash: String,
+        @SerializedName("plantId") val plantId: String,
+    )
+
+    data class PublicTransactionInfo(
+        @SerializedName("txHash") val txHash: String,
+        @SerializedName("updateTxHash") val updateTxHash: String? = null,
+        @SerializedName("recordId") val recordId: String? = null,
+        @SerializedName("blockNumber") val blockNumber: String,
+        @SerializedName("gasUsed") val gasUsed: String
+    )
 }

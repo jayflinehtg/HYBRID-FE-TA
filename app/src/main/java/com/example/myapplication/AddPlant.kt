@@ -169,7 +169,7 @@ fun AddPlant(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Judul "Gambar Tanaman"
+                // Judul
                 Text(
                     "Gambar Tanaman",
                     fontSize = 14.sp,

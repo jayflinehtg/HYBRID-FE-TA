@@ -4,12 +4,12 @@ import com.example.myapplication.data.DataClassResponses
 import com.example.myapplication.data.DataClassResponses.AverageRatingResponse
 import com.example.myapplication.data.DataClassResponses.CheckWalletRequest
 import com.example.myapplication.data.DataClassResponses.CheckWalletResponse
+import com.example.myapplication.data.DataClassResponses.ConfirmAddPlantRequest
+import com.example.myapplication.data.DataClassResponses.ConfirmEditPlantRequest
+import com.example.myapplication.data.DataClassResponses.ConfirmPlantResponse
 import com.example.myapplication.data.DataClassResponses.LoginApiResponse
+import com.example.myapplication.data.DataClassResponses.LogoutResponse
 import com.example.myapplication.data.DataClassResponses.PrepareRegistrationRequest
-import com.example.myapplication.data.DataClassResponses.RatePlantRequest
-import com.example.myapplication.data.DataClassResponses.RatePlantResponse
-import com.example.myapplication.data.DataClassResponses.ServerLogoutResponse
-import com.example.myapplication.data.DataClassResponses.SimpleResponse
 import com.example.myapplication.data.DataClassResponses.UserInfoResponse
 import com.example.myapplication.data.IPFSResponse
 import com.example.myapplication.data.LoginRequest
@@ -39,36 +39,36 @@ interface ApiService {
     @POST("auth/logout")
     suspend fun logoutUserFromServer(
         @Header("Authorization") authorization: String
-    ): ServerLogoutResponse
+    ): LogoutResponse
 
     /* ================================ Tanaman ================================ */
     @POST("plants/add")
-    suspend fun prepareAddPlant( // Nama diubah untuk kejelasan
+    suspend fun prepareAddPlant(
         @Header("Authorization") token: String,
         @Body request: DataClassResponses.AddPlantRequest
     ): DataClassResponses.PrepareTransactionApiResponse
 
     @PUT("plants/edit/{plantId}")
-    suspend fun prepareEditPlant( // Nama diubah untuk kejelasan
+    suspend fun prepareEditPlant(
         @Header("Authorization") token: String,
         @Path("plantId") plantId: String,
         @Body request: DataClassResponses.EditPlantRequest
     ): DataClassResponses.PrepareTransactionApiResponse
 
     @POST("plants/like")
-    suspend fun prepareLikePlant( // Nama diubah untuk kejelasan
+    suspend fun prepareLikePlant(
         @Header("Authorization") token: String,
         @Body request: DataClassResponses.LikeRequest
     ): DataClassResponses.PrepareTransactionApiResponse
 
     @POST("plants/rate")
-    suspend fun prepareRatePlant( // Nama diubah untuk kejelasan
+    suspend fun prepareRatePlant(
         @Header("Authorization") token: String,
         @Body request: DataClassResponses.RatePlantRequest
     ): DataClassResponses.PrepareTransactionApiResponse
 
     @POST("plants/comment")
-    suspend fun prepareCommentPlant( // Nama diubah untuk kejelasan
+    suspend fun prepareCommentPlant(
         @Header("Authorization") token: String,
         @Body request: DataClassResponses.CommentRequest
     ): DataClassResponses.PrepareTransactionApiResponse
@@ -98,13 +98,8 @@ interface ApiService {
         @Path("plantId") plantId: String
     ): AverageRatingResponse
 
-    @GET("plants/{plantId}/ratings")
-    suspend fun getPlantRatings(
-        @Path("plantId") plantId: String
-    ): DataClassResponses.PlantRatingsResponse
-
     @GET("plants/{plantId}/comments")
-    suspend fun getPaginatedComments( // Nama diubah untuk kejelasan
+    suspend fun getPaginatedComments(
         @Path("plantId") plantId: String,
         @Query("page") page: Int,
         @Query("limit") limit: Int = 10
@@ -124,21 +119,32 @@ interface ApiService {
     ): ResponseBody
 
     /* ================================ TRANSACTION HISTORY ================================ */
-    @GET("plants/record/{recordId}")
+    @GET("plants/public/record/{recordId}")
     suspend fun getPlantRecord(
         @Path("recordId") recordId: String
     ): DataClassResponses.PlantRecordResponse
 
-    @GET("plants/records/all")
+    @GET("plants/public/records")
     suspend fun getAllPlantRecords(): DataClassResponses.AllPlantRecordsResponse
 
-    @GET("plants/history/{plantId}")
+    @GET("plants/public/history/{plantId}")
     suspend fun getPlantTransactionHistory(
         @Path("plantId") plantId: String,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10
     ): DataClassResponses.TransactionHistoryResponse
 
-    @GET("plants/records/count")
+    @GET("plants/public/count")
     suspend fun getRecordCount(): DataClassResponses.RecordCountResponse
+
+    /* ================================ CONFIRMATION ENDPOINTS ================================ */
+    @POST("plants/confirm-add")
+    suspend fun confirmAddPlant(
+        @Body request: ConfirmAddPlantRequest
+    ): ConfirmPlantResponse
+
+    @POST("plants/confirm-edit")
+    suspend fun confirmEditPlant(
+        @Body request: ConfirmEditPlantRequest
+    ): ConfirmPlantResponse
 }

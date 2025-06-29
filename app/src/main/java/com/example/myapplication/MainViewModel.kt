@@ -68,6 +68,23 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private fun extractTransactionData(response: DataClassResponses.PrepareTransactionApiResponse): String {
+        return when {
+            response.txHash?.transactionData != null -> {
+                Log.d("MainViewModel_Extract", "Using txHash.transactionData")
+                response.txHash.transactionData
+            }
+            response.data?.transactionData != null -> {
+                Log.d("MainViewModel_Extract", "Using data.transactionData")
+                response.data.transactionData
+            }
+            else -> {
+                Log.e("MainViewModel_Extract", "No transaction data found in response")
+                throw ViewModelValidationException("Gagal mempersiapkan data transaksi.")
+            }
+        }
+    }
+
     // Fungsi reset state untuk dipanggil dari UI setelah menangani hasil operasi
     fun resetRegistrationState() { _uiState.update { it.copy(registrationState = RegistrationResult.Idle) } }
     fun resetLoginState() { _uiState.update { it.copy(loginState = LoginResult.Idle) } }
@@ -145,11 +162,9 @@ class MainViewModel @Inject constructor(
                         )
                     )
                 } catch (e: retrofit2.HttpException) {
-                    // Handle HTTP error dari backend
                     val errorBody = e.response()?.errorBody()?.string()
                     Log.e("MainViewModel_Register", "HTTP Error: ${e.code()} - $errorBody")
 
-                    // Parse error message dari backend
                     val errorMessage = try {
                         val errorJson = com.google.gson.JsonParser.parseString(errorBody ?: "")
                         errorJson.asJsonObject.get("message")?.asString ?: "Error tidak diketahui"
@@ -157,7 +172,6 @@ class MainViewModel @Inject constructor(
                         "Error dari server: ${e.message()}"
                     }
 
-                    // Jika error adalah "sudah terdaftar", langsung throw tanpa transaksi
                     if (errorMessage.contains("Anda sudah memiliki akun", ignoreCase = true)) {
                         Log.d("MainViewModel_Register", "User sudah terdaftar, tidak akan menampilkan MetaMask")
                         throw ViewModelValidationException(errorMessage)
@@ -169,11 +183,13 @@ class MainViewModel @Inject constructor(
                     throw ViewModelValidationException("Gagal terhubung ke server: ${e.message}")
                 }
 
-                if (!prepareResponse.success || prepareResponse.data?.transactionData == null) {
+                Log.d("MainViewModel_Register", "Response: $prepareResponse")
+
+                val transactionDataHex = extractTransactionData(prepareResponse)
+
+                if (!prepareResponse.success || transactionDataHex.isEmpty()) {
                     throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data transaksi registrasi.")
                 }
-
-                val transactionDataHex = prepareResponse.data.transactionData
 
                 val contractAddress = RetrofitClient.SMART_CONTRACT_ADDRESS
                 if (contractAddress.isBlank() || contractAddress == "SMART_CONTRACT_ADDRESS_DI_RETROFIT_CLIENT") {
@@ -183,7 +199,7 @@ class MainViewModel @Inject constructor(
                     throw ViewModelValidationException("Data transaksi dari server tidak valid.")
                 }
 
-                //Hanya sampai sini jika backend berhasil dan tidak ada error "sudah terdaftar"
+                Log.d("MainViewModel_Register", "Transaction Data: ${transactionDataHex.substring(0, 20)}...")
                 Log.d("MainViewModel_Register", "Memulai transaksi on-chain untuk registrasi...")
 
                 val txParams = mapOf("from" to userWalletAddress, "to" to contractAddress, "data" to transactionDataHex)
@@ -205,8 +221,6 @@ class MainViewModel @Inject constructor(
                     }
                     is Result.Error -> {
                         val error = specificResult.error
-
-                        // Handle user rejection
                         if (error.code == 4001 || error.message.contains("user rejected", ignoreCase = true)) {
                             throw Exception("User membatalkan transaksi registrasi")
                         } else {
@@ -220,7 +234,6 @@ class MainViewModel @Inject constructor(
                     val errorMessage = throwable.message ?: "Terjadi kesalahan registrasi"
                     Log.e("MainViewModel_Register", "Registration failed: $errorMessage")
 
-                    // Cek error message untuk sudah terdaftar
                     when {
                         errorMessage.contains("Anda sudah memiliki akun", ignoreCase = true) -> {
                             RegistrationResult.AlreadyRegistered(errorMessage)
@@ -239,7 +252,6 @@ class MainViewModel @Inject constructor(
 
             when (registrationOutcome) {
                 is RegistrationResult.Success -> {
-                    // refresh data
                     onRegisterSuccessAfterChain()
                     viewModelScope.launch {
                         _uiEvent.emit(UiEvent.Message("Registrasi berhasil!"))
@@ -410,7 +422,7 @@ class MainViewModel @Inject constructor(
         val currentToken = PreferencesHelper.getJwtToken(context)
         var serverMessage = "Proses logout..."
 
-        // Simpan wallet address  sebelum ter-reset function disconnectWallet
+        // Simpan wallet address sebelum ter-reset function disconnectWallet
         val savedWalletAddress = ethereum.selectedAddress.takeIf { it.isNotEmpty() }
             ?: PreferencesHelper.getWalletAddress(context)
 
@@ -429,7 +441,6 @@ class MainViewModel @Inject constructor(
                 try {
                     val serverResponse = apiService.logoutUserFromServer("Bearer $currentToken")
 
-                    // Check if token was refreshed by interceptor
                     val tokenAfterCall = PreferencesHelper.getJwtToken(context)
                     if (tokenAfterCall != currentToken) {
                         Log.d("MainViewModel_Logout", "✅ Token was automatically refreshed by interceptor!")
@@ -439,19 +450,19 @@ class MainViewModel @Inject constructor(
 
                     if (serverResponse.success) {
                         Log.d("MainViewModel_Logout", "Logout sisi server berhasil: ${serverResponse.message}")
+
                         logoutTxDataFromMiddleware = serverResponse.logoutTransactionData
+                        publicKeyForOnChainLogout = serverResponse.publicKey ?: savedWalletAddress
+                        serverMessage = serverResponse.message
 
-                        // Gunakan publicKey dari response server jika tersedia
-                        if (!serverResponse.publicKey.isNullOrEmpty()) {
-                            publicKeyForOnChainLogout = serverResponse.publicKey
+                        if (logoutTxDataFromMiddleware.isNullOrBlank()) {
+                            Log.w("MainViewModel_Logout", "⚠️ logoutTransactionData is null or blank!")
+                        } else {
+                            Log.d("MainViewModel_Logout", "✅ logoutTransactionData tersedia untuk MetaMask")
                         }
-
-                        serverMessage = serverResponse.message ?: "Token logout sisi server diproses. Silakan lanjutkan logout on-chain."
                     } else {
                         Log.w("MainViewModel_Logout", "Logout sisi server tidak sukses: ${serverResponse.message}")
-                        serverMessage = serverResponse.message ?: "Gagal logout dari server."
-
-                        // Jika server response tidak sukses, tetap lanjutkan proses cleanup
+                        serverMessage = serverResponse.message
                         throw Exception(serverMessage)
                     }
                 } catch (e: Exception) {
@@ -462,9 +473,6 @@ class MainViewModel @Inject constructor(
                         e.message?.contains("kedaluwarsa", ignoreCase = true) == true) {
                         Log.d("MainViewModel_Logout", "Token expired, lanjutkan proses logout on-chain")
                         serverMessage = "Token sudah kedaluwarsa. Logout dianggap berhasil."
-
-                        // Tetap perlu data transaksi untuk logout on-chain
-                        // Server middleware akan tetap memberikan logoutTransactionData meski token expired
                     } else {
                         // Untuk error lain, tetap lanjutkan cleanup tapi catat error
                         serverMessage = "Logout server gagal: ${e.message}. Melanjutkan cleanup lokal."
@@ -478,7 +486,6 @@ class MainViewModel @Inject constructor(
             // Proses logout on-chain jika ada data transaksi dan alamat wallet
             if (publicKeyForOnChainLogout.isNotEmpty() && !logoutTxDataFromMiddleware.isNullOrBlank()) {
                 try {
-                    Log.d("MainViewModel_Logout", "Melanjutkan dengan logout on-chain untuk: $publicKeyForOnChainLogout")
 
                     val contractAddress = RetrofitClient.SMART_CONTRACT_ADDRESS
                     if (contractAddress.isBlank() || contractAddress == "ALAMAT_SMART_CONTRACT_ANDA_ISI_DI_RETROFIT_CLIENT") {
@@ -497,6 +504,8 @@ class MainViewModel @Inject constructor(
                     )
 
                     val transactionResult = ethereum.sendRequest(request)
+
+                    Log.d("MainViewModel_Logout", "📱 MetaMask response: $transactionResult")
 
                     when (transactionResult) {
                         is Result.Success.Item -> {
@@ -558,6 +567,7 @@ class MainViewModel @Inject constructor(
         )
     }
 
+
     private fun cleanupLocalSessionData(navigateToWallet: Boolean = false) {
         PreferencesHelper.clearJwtToken(context)
         PreferencesHelper.saveMetaMaskConnectionStatus(context, false)
@@ -606,7 +616,13 @@ class MainViewModel @Inject constructor(
                     is LogoutResult.Success -> {
                         sendUiMessage(appLogoutOutcome.message)
 
-                        _uiState.update { it.copy(shouldCleanupAfterLogout = true) }
+                        delay(2000)
+
+                        cleanupLocalSessionData(navigateToWallet = false)
+                        disconnectWallet()
+
+                        _uiState.update { it.copy(logoutState = LogoutResult.Idle) }
+                        _uiEvent.emit(UiEvent.NavigateTo(Screen.WalletComponent.route))
                     }
                     is LogoutResult.Error -> {
                         if (appLogoutOutcome.errorMessage.contains("User membatalkan", ignoreCase = true) ||
@@ -614,28 +630,43 @@ class MainViewModel @Inject constructor(
                             sendUiMessage("Logout dibatalkan oleh user")
                         } else {
                             sendUiMessage("Logout dengan error: ${appLogoutOutcome.errorMessage}")
-                            _uiState.update { it.copy(shouldCleanupAfterLogout = true) }
+
+                            delay(2000)
+
+                            cleanupLocalSessionData(navigateToWallet = false)
+                            disconnectWallet()
+
+                            _uiState.update { it.copy(logoutState = LogoutResult.Idle) }
+                            _uiEvent.emit(UiEvent.NavigateTo(Screen.WalletComponent.route))
                         }
                     }
                     else -> {
                         sendUiMessage("Proses logout selesai.")
-                        _uiState.update { it.copy(shouldCleanupAfterLogout = true) }
+
+                        delay(2000)
+
+                        cleanupLocalSessionData(navigateToWallet = false)
+                        disconnectWallet()
+
+                        _uiState.update { it.copy(logoutState = LogoutResult.Idle) }
+                        _uiEvent.emit(UiEvent.NavigateTo(Screen.WalletComponent.route))
                     }
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error dalam logoutAndDisconnect: ${e.message}", e)
                 sendUiMessage("Error logout: ${e.message}")
-                _uiState.update { it.copy(shouldCleanupAfterLogout = true) }
+
+                delay(2000)
+
+                cleanupLocalSessionData(navigateToWallet = false)
+                disconnectWallet()
+
+                _uiState.update { it.copy(logoutState = LogoutResult.Idle) }
+                _uiEvent.emit(UiEvent.NavigateTo(Screen.WalletComponent.route))
             } finally {
                 _uiState.update { it.copy(isConnecting = false) }
             }
         }
-    }
-
-    fun performCleanupAndNavigate() {
-        cleanupLocalSessionData(navigateToWallet = false)
-        disconnectWallet()
-        _uiState.update { it.copy(shouldCleanupAfterLogout = false) }
     }
 
     private fun connectWallet() {
@@ -650,7 +681,7 @@ class MainViewModel @Inject constructor(
                     if (userWalletAddress.isNotEmpty()) {
                         Log.d("MainViewModel_Connect", "Alamat terdeteksi: '$userWalletAddress', memproses...")
                         PreferencesHelper.saveMetaMaskConnectionStatus(context, true)
-                        PreferencesHelper.saveWalletAddress(context, userWalletAddress)  // Pastikan wallet address disimpan di sini
+                        PreferencesHelper.saveWalletAddress(context, userWalletAddress)
                         _uiState.update {
                             it.copy(
                                 walletAddress = userWalletAddress,

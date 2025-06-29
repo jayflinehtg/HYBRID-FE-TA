@@ -85,6 +85,27 @@ class PlantViewModel @Inject constructor(
         }
     }
 
+    private fun extractTransactionData(response: DataClassResponses.PrepareTransactionApiResponse): String {
+        return when {
+            response.txHash?.transactionData != null -> {
+                Log.d("PlantViewModel_Extract", "Using txHash.transactionData")
+                response.txHash.transactionData
+            }
+            response.data?.transactionData != null -> {
+                Log.d("PlantViewModel_Extract", "Using data.transactionData")
+                response.data.transactionData
+            }
+            response.transactionData != null -> {
+                Log.d("PlantViewModel_Extract", "Using direct transactionData")
+                response.transactionData
+            }
+            else -> {
+                Log.e("PlantViewModel_Extract", "No transaction data found in response")
+                throw ViewModelValidationException("Gagal mempersiapkan data transaksi.")
+            }
+        }
+    }
+
     // Fungsi reset state untuk dipanggil dari UI setelah menangani hasil
     fun resetAddPlantState() { _uiState.value = _uiState.value.copy(addPlantState = AddPlantResult.Idle) }
     fun resetEditPlantState() { _uiState.value = _uiState.value.copy(editPlantState = EditPlantResult.Idle) }
@@ -205,11 +226,12 @@ class PlantViewModel @Inject constructor(
                     throw ViewModelValidationException("Gagal terhubung ke server: ${e.message}")
                 }
 
-                if (!prepareResponse.success || prepareResponse.data?.transactionData == null) {
+                val transactionDataHex = extractTransactionData(prepareResponse)
+                if (!prepareResponse.success || transactionDataHex.isEmpty()) {
                     throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data transaksi.")
                 }
 
-                val transactionDataHex = prepareResponse.data.transactionData
+                val userAddress = getCurrentUserAddress()
 
                 Log.d("PlantViewModel_Add", "Memulai transaksi on-chain untuk add plant...")
 
@@ -218,7 +240,11 @@ class PlantViewModel @Inject constructor(
                 when(val specificResult = transactionResult) {
                     is Result.Success.Item -> {
                         val txHash = specificResult.value
-                        if(txHash.isNotEmpty()) txHash else throw Exception("Add plant on-chain sukses tapi txHash tidak valid: $txHash")
+                        if(txHash.isNotEmpty()) {
+                            confirmAddPlantWithVerification(txHash, userAddress)
+                        } else {
+                            throw Exception("Add plant on-chain sukses tapi txHash tidak valid: $txHash")
+                        }
                     }
                     is Result.Error -> {
                         val error = specificResult.error
@@ -232,7 +258,7 @@ class PlantViewModel @Inject constructor(
                     else -> throw Exception("Tipe hasil sukses tidak terduga: $specificResult")
                 }
             }.fold(
-                onSuccess = { txHash -> AddPlantResult.Success(txHash, "ID_BARU_TIDAK_DIKETAHUI") },
+                onSuccess = { result -> result }, // Return the actual result from confirmation
                 onFailure = { throwable ->
                     val errorMessage = throwable.message ?: "Terjadi kesalahan menambah tanaman"
                     Log.e("PlantViewModel_Add", "Add plant failed: $errorMessage")
@@ -264,7 +290,6 @@ class PlantViewModel @Inject constructor(
     suspend fun performUploadImage(imageUri: Uri): String {
         return withContext(Dispatchers.IO) {
 
-            // TAMBAHAN: Update IPFS state ke Loading
             _uiState.value = _uiState.value.copy(ipfsUploadState = IPFSUploadResult.Loading)
 
             var tempFile: File? = null
@@ -368,11 +393,11 @@ class PlantViewModel @Inject constructor(
                     throw ViewModelValidationException("Gagal terhubung ke server: ${e.message}")
                 }
 
-                if (!prepareResponse.success || prepareResponse.data?.transactionData == null) {
+                val transactionDataHex = extractTransactionData(prepareResponse)
+                if (!prepareResponse.success || transactionDataHex.isEmpty()) {
                     throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data transaksi.")
                 }
-
-                val transactionDataHex = prepareResponse.data.transactionData
+                val userAddress = getCurrentUserAddress()
 
                 Log.d("PlantViewModel_Edit", "Memulai transaksi on-chain untuk edit plant...")
 
@@ -381,12 +406,15 @@ class PlantViewModel @Inject constructor(
                 when(val specificResult = transactionResult) {
                     is Result.Success.Item -> {
                         val txHash = specificResult.value
-                        if(txHash.isNotEmpty()) txHash else throw Exception("Edit plant on-chain sukses tapi txHash tidak valid: $txHash")
+                        if(txHash.isNotEmpty()) {
+                            confirmEditPlantWithVerification(txHash, request.plantId, userAddress)
+                        } else {
+                            throw Exception("Edit plant on-chain sukses tapi txHash tidak valid: $txHash")
+                        }
                     }
                     is Result.Error -> {
                         val error = specificResult.error
 
-                        // Handle user cancellation berdasarkan search results
                         if (error.code == 4001 || error.message.contains("user rejected", ignoreCase = true)) {
                             throw Exception("User membatalkan transaksi edit plant")
                         } else {
@@ -396,7 +424,7 @@ class PlantViewModel @Inject constructor(
                     else -> throw Exception("Tipe hasil sukses tidak terduga: $specificResult")
                 }
             }.fold(
-                onSuccess = { txHash -> EditPlantResult.Success(txHash, request.plantId) },
+                onSuccess = { result -> result }, // Return the actual result from confirmation
                 onFailure = { throwable ->
                     val errorMessage = throwable.message ?: "Terjadi kesalahan edit tanaman"
                     Log.e("PlantViewModel_Edit", "Edit plant failed: $errorMessage")
@@ -417,11 +445,72 @@ class PlantViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(editPlantState = outcome, isLoading = false)
 
-            // Menggunakan token dari PreferencesHelper untuk refresh
             if (outcome is EditPlantResult.Success) {
                 val currentToken = PreferencesHelper.getJwtToken(context)
                 fetchPlantDetail(request.plantId, currentToken?.let { "Bearer $it" })
             }
+        }
+    }
+
+    private suspend fun confirmAddPlantWithVerification(txHash: String, userAddress: String): AddPlantResult {
+        return try {
+            val plantId = System.currentTimeMillis().toString()
+
+            val confirmRequest = DataClassResponses.ConfirmAddPlantRequest(
+                privateTxHash = txHash,
+                plantId = plantId,
+                userAddress = userAddress
+            )
+
+            val confirmResponse = apiService.confirmAddPlant(confirmRequest)
+
+            if (confirmResponse.success) {
+                Log.d("PlantViewModel_Add", "✅ Transaksi berhasil diverifikasi")
+                AddPlantResult.Success(
+                    txHash = txHash,
+                    plantId = plantId,
+                    message = confirmResponse.message
+                )
+            } else {
+                // Handle failure
+                val errorMessage = confirmResponse.publicError ?: confirmResponse.message
+                Log.e("PlantViewModel_Add", "❌ Confirmation failed: $errorMessage")
+                throw Exception(errorMessage)
+            }
+
+        } catch (e: Exception) {
+            Log.e("PlantViewModel_Add", "Error confirming add plant: ${e.message}")
+            throw Exception("Transaksi berhasil tapi konfirmasi gagal: ${e.message}")
+        }
+    }
+
+    private suspend fun confirmEditPlantWithVerification(txHash: String, plantId: String, userAddress: String): EditPlantResult {
+        return try {
+            val confirmRequest = DataClassResponses.ConfirmEditPlantRequest(
+                privateTxHash = txHash,
+                plantId = plantId,
+                userAddress = userAddress
+            )
+
+            val confirmResponse = apiService.confirmEditPlant(confirmRequest)
+
+            if (confirmResponse.success) {
+                Log.d("PlantViewModel_Edit", "✅ Transaksi edit berhasil diverifikasi")
+                EditPlantResult.Success(
+                    txHash = txHash,
+                    plantId = plantId,
+                    message = confirmResponse.message
+                )
+            } else {
+                // Handle failure
+                val errorMessage = confirmResponse.publicError ?: confirmResponse.message
+                Log.e("PlantViewModel_Edit", "❌ Edit confirmation failed: $errorMessage")
+                throw Exception(errorMessage)
+            }
+
+        } catch (e: Exception) {
+            Log.e("PlantViewModel_Edit", "Error confirming edit plant: ${e.message}")
+            throw Exception("Edit berhasil tapi konfirmasi gagal: ${e.message}")
         }
     }
 
@@ -458,7 +547,7 @@ class PlantViewModel @Inject constructor(
     // ==================== Pagination Tanaman ====================
     fun fetchPlantsByPage(page: Int = 1) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true) // Set loading
+            _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 // Panggil API untuk mendapatkan data halaman yang diminta
                 val response = apiService.getPaginatedPlants(page, 10)
@@ -574,11 +663,13 @@ class PlantViewModel @Inject constructor(
                     throw ViewModelValidationException("Gagal terhubung ke server: ${e.message}")
                 }
 
-                if (!prepareResponse.success || prepareResponse.data?.transactionData == null) {
+                val transactionDataHex = extractTransactionData(prepareResponse)
+                if (!prepareResponse.success || transactionDataHex.isEmpty()) {
                     throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data like.")
                 }
 
-                val transactionResult = sendPlantTransaction(prepareResponse.data.transactionData, "LikePlant")
+                // ✅ FIX: Tambahkan assignment untuk transactionResult
+                val transactionResult = sendPlantTransaction(transactionDataHex, "LikePlant")
 
                 when(val specificResult = transactionResult) {
                     is Result.Success.Item -> {
@@ -667,11 +758,10 @@ class PlantViewModel @Inject constructor(
                     throw ViewModelValidationException("Gagal terhubung ke server: ${e.message}")
                 }
 
-                if (!prepareResponse.success || prepareResponse.data?.transactionData == null) {
-                    throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data transaksi.")
+                val transactionDataHex = extractTransactionData(prepareResponse)
+                if (!prepareResponse.success || transactionDataHex.isEmpty()) {
+                    throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data like.")
                 }
-
-                val transactionDataHex = prepareResponse.data.transactionData
 
                 Log.d("PlantViewModel_Comment", "Memulai transaksi on-chain untuk comment plant...")
 
