@@ -291,7 +291,7 @@ fun EditPlantScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // --- TOMBOL SIMPAN PERUBAHAN ---
+                    // TOMBOL SIMPAN PERUBAHAN
                     Button(
                         onClick = {
                             var hasError = false
@@ -406,7 +406,7 @@ fun FormField(
             singleLine = false,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Text),
             textStyle = TextStyle(color = Color.Black, fontSize = 14.sp),
-            isError = displayErrorText != null, // Cek jika ada error yang perlu ditampilkan
+            isError = displayErrorText != null,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp),
@@ -421,7 +421,7 @@ fun FormField(
                 )
             }
         )
-        if (displayErrorText != null) { // Tampilkan error jika ada
+        if (displayErrorText != null) {
             Text(
                 text = displayErrorText,
                 color = Color.Red,

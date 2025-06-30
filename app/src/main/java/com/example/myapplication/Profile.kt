@@ -223,7 +223,7 @@ fun Profile(navController: NavController, viewModel: MainViewModel = hiltViewMod
                         }
                         displayWalletAddress.isNotEmpty() -> {
                             Log.d("ProfileScreen", "User terhubung tapi belum login, hanya disconnect wallet...")
-                            viewModel.logoutAndDisconnect() // Tetap gunakan fungsi yang sama untuk konsistensi
+                            viewModel.logoutAndDisconnect()
                         }
                         else -> {
                             Log.w("ProfileScreen", "Kondisi tidak valid untuk logout")
@@ -235,7 +235,7 @@ fun Profile(navController: NavController, viewModel: MainViewModel = hiltViewMod
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
                     .height(50.dp),
-                enabled = !isLogoutInProgress // Disable saat proses logout berlangsung
+                enabled = !isLogoutInProgress
             ) {
                 if (isLogoutInProgress) {
                     Row(

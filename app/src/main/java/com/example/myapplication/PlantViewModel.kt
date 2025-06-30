@@ -258,7 +258,7 @@ class PlantViewModel @Inject constructor(
                     else -> throw Exception("Tipe hasil sukses tidak terduga: $specificResult")
                 }
             }.fold(
-                onSuccess = { result -> result }, // Return the actual result from confirmation
+                onSuccess = { result -> result },
                 onFailure = { throwable ->
                     val errorMessage = throwable.message ?: "Terjadi kesalahan menambah tanaman"
                     Log.e("PlantViewModel_Add", "Add plant failed: $errorMessage")
@@ -424,7 +424,7 @@ class PlantViewModel @Inject constructor(
                     else -> throw Exception("Tipe hasil sukses tidak terduga: $specificResult")
                 }
             }.fold(
-                onSuccess = { result -> result }, // Return the actual result from confirmation
+                onSuccess = { result -> result },
                 onFailure = { throwable ->
                     val errorMessage = throwable.message ?: "Terjadi kesalahan edit tanaman"
                     Log.e("PlantViewModel_Edit", "Edit plant failed: $errorMessage")
@@ -668,7 +668,6 @@ class PlantViewModel @Inject constructor(
                     throw ViewModelValidationException(prepareResponse.message ?: "Gagal mempersiapkan data like.")
                 }
 
-                // ✅ FIX: Tambahkan assignment untuk transactionResult
                 val transactionResult = sendPlantTransaction(transactionDataHex, "LikePlant")
 
                 when(val specificResult = transactionResult) {
@@ -690,7 +689,7 @@ class PlantViewModel @Inject constructor(
             }.fold(
                 onSuccess = { txHash -> LikePlantResult.Success(txHash, plantId) },
                 onFailure = { throwable ->
-                    toggleLikeLocally() // Kembalikan state UI jika transaksi gagal
+                    toggleLikeLocally()
                     val errorMessage = throwable.message ?: "Terjadi kesalahan like tanaman"
                     Log.e("PlantViewModel_Like", "Like plant failed: $errorMessage")
 

@@ -123,7 +123,6 @@ class MainViewModel @Inject constructor(
                     }
                     response.userData.fullName?.let { PreferencesHelper.saveUserFullName(context, it) }
                 } else {
-                    // Karena tidak ada response.message, gunakan pesan default
                     Log.w("MainViewModel_Fetch", "Gagal mengambil info pengguna (success=false)")
                     onAuthFailure?.invoke()
                     sendUiMessage("Gagal memuat data pengguna.")
@@ -384,7 +383,7 @@ class MainViewModel @Inject constructor(
                     PreferencesHelper.clearJwtToken(context)
                     Log.e("MainViewModel_Login", "Proses login gagal: ${throwable.message}", throwable)
 
-                    // **Enhanced error classification**
+                    // Enhanced error classification
                     val errorMessage = throwable.message ?: "Terjadi kesalahan login"
                     when {
                         errorMessage.contains("Password salah", ignoreCase = true) -> {
@@ -767,7 +766,7 @@ class MainViewModel @Inject constructor(
                     Log.w("MainViewModel_Init", "Auth failure dari server saat init. Membersihkan sesi lokal (token & nama).")
                     cleanupLocalSessionData(navigateToWallet = false)
                     viewModelScope.launch {
-                        _uiEvent.emit(UiEvent.NavigateTo(Screen.Login.route)) // Arahkan ke Login jika token tidak valid
+                        _uiEvent.emit(UiEvent.NavigateTo(Screen.Login.route))
                         _uiEvent.emit(UiEvent.Message("Sesi Anda telah berakhir. Silakan login kembali."))
                     }
                 }

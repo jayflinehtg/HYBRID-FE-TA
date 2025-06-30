@@ -130,7 +130,7 @@ fun Home(
                     val nextPage = (uiState.currentPage + 1).coerceAtMost(totalPages)
                     viewModel.fetchPlantsByPage(nextPage)
                 },
-                enabled = uiState.currentPage < totalPages // Hanya aktif jika bukan halaman terakhir
+                enabled = uiState.currentPage < totalPages
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Halaman Berikutnya")
 

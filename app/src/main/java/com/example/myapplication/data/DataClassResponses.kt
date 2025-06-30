@@ -16,21 +16,6 @@ class DataClassResponses {
         @SerializedName("transactionData") val transactionData: String? = null
     )
 
-    data class CheckWalletRequest(
-        val walletAddress: String
-    )
-
-    data class CheckWalletResponse(
-        val success: Boolean,
-        val message: String? = null,
-        val data: CheckWalletData? = null
-    )
-
-    data class CheckWalletData(
-        val isRegistered: Boolean,
-        val walletAddress: String
-    )
-
     data class PrepareRegistrationRequest(
         @SerializedName("fullName") val fullName: String,
         @SerializedName("password") val password: String,
@@ -39,7 +24,7 @@ class DataClassResponses {
     )
 
     // Data class untuk respons login dari middleware (setelah verifikasi password)
-    data class LoginApiResponse( // Ganti nama dari LoginResponse lama agar lebih jelas
+    data class LoginApiResponse(
         @SerializedName("success") val success: Boolean,
         @SerializedName("token") val token: String?,
         @SerializedName("userData") val userData: UserData?,
@@ -123,20 +108,9 @@ class DataClassResponses {
         @SerializedName("averageRating") val averageRating: Double
     )
 
-    data class PlantRatingsResponse(
-        @SerializedName("success") val success: Boolean,
-        @SerializedName("ratings") val ratings: List<Int>
-    )
-
     data class RatePlantRequest(
         @SerializedName("plantId") val plantId: String,
         @SerializedName("rating") val rating: Int
-    )
-
-    data class RatePlantResponse(
-        @SerializedName("success") val success: Boolean,
-        @SerializedName("message") val message: String,
-        @SerializedName("txHash") val txHash: String?
     )
 
     data class RatedPlant(
@@ -153,14 +127,6 @@ class DataClassResponses {
     data class CommentRequest(
         @SerializedName("plantId") val plantId: String,
         @SerializedName("comment") val comment: String
-    )
-
-    // Response umum untuk like dan komentar
-    data class SimpleResponse(
-        @SerializedName("success") val success: Boolean,
-        @SerializedName("message") val message: String,
-        @SerializedName("txHash") val txHash: String,
-        @SerializedName("plantId") val plantId: String
     )
 
     /* ============================ RECORD TANAMAN =========================== */

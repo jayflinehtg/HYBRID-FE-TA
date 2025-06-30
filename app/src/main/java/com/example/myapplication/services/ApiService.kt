@@ -2,8 +2,6 @@ package com.example.myapplication.services
 
 import com.example.myapplication.data.DataClassResponses
 import com.example.myapplication.data.DataClassResponses.AverageRatingResponse
-import com.example.myapplication.data.DataClassResponses.CheckWalletRequest
-import com.example.myapplication.data.DataClassResponses.CheckWalletResponse
 import com.example.myapplication.data.DataClassResponses.ConfirmAddPlantRequest
 import com.example.myapplication.data.DataClassResponses.ConfirmEditPlantRequest
 import com.example.myapplication.data.DataClassResponses.ConfirmPlantResponse
@@ -16,7 +14,6 @@ import com.example.myapplication.data.LoginRequest
 import com.example.myapplication.data.PaginatedPlantResponse
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
-import retrofit2.Call
 import retrofit2.http.*
 
 interface ApiService {

@@ -182,7 +182,7 @@ fun LoginScreen(
                     Button(
                         onClick = {
                             passwordErrorLocal = null
-                            viewModel.resetLoginState() // Reset state error sebelumnya
+                            viewModel.resetLoginState()
 
                             if (password.isBlank()) {
                                 passwordErrorLocal = "Kata sandi tidak boleh kosong."

@@ -164,7 +164,7 @@
                 is LikePlantResult.Success -> {
                     Toast.makeText(context, "Aksi like/unlike berhasil", Toast.LENGTH_SHORT).show()
                     viewModel.resetLikePlantState()
-                    delay(2500) // Menununggu 3 detik
+                    delay(2500)
                     viewModel.refreshPlantDetail(plantId, null)
                 }
                 is LikePlantResult.Error -> {

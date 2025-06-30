@@ -72,8 +72,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Handle UI events dari ViewModel (navigasi & pesan)
-                LaunchedEffect(navController, viewModel) { // Key bisa disederhanakan
+                // Handle UI events dari ViewModel
+                LaunchedEffect(navController, viewModel) {
                     viewModel.uiEvent.collect { event ->
                         Log.d("MainActivity", "Menerima UiEvent: $event")
                         when (event) {
@@ -127,14 +127,13 @@ class MainActivity : ComponentActivity() {
                     composable(Screen.Register.route) {
                         RegisterScreen(
                             navController = navController,
-                            viewModel = viewModel, // Teruskan MainViewModel
+                            viewModel = viewModel,
                             onNavigateToLogin = {
                                 navController.navigate(Screen.Login.route) {
                                     popUpTo(Screen.Register.route) { inclusive = true }
                                     launchSingleTop = true
                                 }
                             }
-                            // Callback onRegisterSuccess dihapus
                         )
                     }
 
@@ -142,14 +141,13 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Login.route) {
                             LoginScreen(
                                 navController = navController,
-                                viewModel = viewModel, // Teruskan MainViewModel
+                                viewModel = viewModel,
                                 onNavigateToRegister = {
                                     navController.navigate(Screen.Register.route) {
                                         popUpTo(Screen.Login.route) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
-                                // Callback onLoginSuccess dihapus
                             )
                         }
 
@@ -158,7 +156,7 @@ class MainActivity : ComponentActivity() {
                             BottomNavBarScreen(
                                 rootNavController = navController,
                                 isGuest = uiState.isGuest,
-                                viewModel = viewModel // MainViewModel diteruskan ke BottomNavBarScreen
+                                viewModel = viewModel
                             )
                         }
 
@@ -209,7 +207,7 @@ class MainActivity : ComponentActivity() {
                         ) { backStackEntry ->
                             val plantId = backStackEntry.arguments?.getString("plantId") ?: ""
                             if (plantId.isEmpty()) {
-                                Text("Plant ID kosong.") // Pesan yang lebih baik
+                                Text("Plant ID kosong.")
                             } else {
                                 val plantViewModel: PlantViewModel = hiltViewModel()
                                 EditPlantScreen(
