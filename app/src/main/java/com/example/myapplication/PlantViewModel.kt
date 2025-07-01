@@ -241,7 +241,7 @@ class PlantViewModel @Inject constructor(
                     is Result.Success.Item -> {
                         val txHash = specificResult.value
                         if(txHash.isNotEmpty()) {
-                            confirmAddPlantWithVerification(txHash, userAddress)
+                            return@runCatching confirmAddPlantWithVerification(txHash, userAddress)
                         } else {
                             throw Exception("Add plant on-chain sukses tapi txHash tidak valid: $txHash")
                         }
@@ -407,7 +407,7 @@ class PlantViewModel @Inject constructor(
                     is Result.Success.Item -> {
                         val txHash = specificResult.value
                         if(txHash.isNotEmpty()) {
-                            confirmEditPlantWithVerification(txHash, request.plantId, userAddress)
+                            return@runCatching confirmEditPlantWithVerification(txHash, request.plantId, userAddress)
                         } else {
                             throw Exception("Edit plant on-chain sukses tapi txHash tidak valid: $txHash")
                         }
@@ -454,7 +454,7 @@ class PlantViewModel @Inject constructor(
 
     private suspend fun confirmAddPlantWithVerification(txHash: String, userAddress: String): AddPlantResult {
         return try {
-            val plantId = System.currentTimeMillis().toString()
+            val plantId = _uiState.value.totalPlants.toString()
 
             val confirmRequest = DataClassResponses.ConfirmAddPlantRequest(
                 privateTxHash = txHash,
